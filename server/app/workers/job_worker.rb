@@ -1,4 +1,5 @@
 require 'pty'
+require 'timeout'
 
 class JobWorker
   include Sidekiq::Worker
@@ -40,7 +41,7 @@ class JobWorker
       end
 
       var cmd = "#{exe_path} -i #{input_dir} -o #{output_dir} -s #{state_path}"
-      if (job.resumed?)
+      if (job.resuming?)
         cmd = "#{cmd}  --resume"
       end
 
@@ -49,12 +50,12 @@ class JobWorker
       begin
 
         stdout, stdin, pid = PTY.spawn(cmd)
-        normal_exit = true
 
+        job.running!
         thread = Thread.new do
           begin
             begin
-              line_num = 1
+              line_num = job.outputs.count + 1
               stdout.each do |line|
                 result = Result.new { job_id: job.id, order: line_num, contents: line }
                 result.save
@@ -67,95 +68,72 @@ class JobWorker
           end
         end
 
+        # Process.kill(0, pid) sends a signal of 0 to the process, which
+        # returns 1 if the process still exists.
         while (Process.kill(0, pid))
           sleep(5)
           job.reload
 
-          if (job.paused?)
+          if (job.pausing?)
             Process.kill('USR1', pid)
-            #TODO: save the state
+            Timeout::timeout(600) do
+              while (Process.kill(0, pid))
+                sleep(0.5)
+              end
+            end
+            if (Process.kill(0, pid))
+              Process.abort("Timed out while attempting to pause")
+            end
+
+            if (job.state_file)
+              job.state_file.delete
+            end
+
+            if (File.exist?( state_path ))
+              job.state_file = new JobFile({name: File.basename(state_path), contents: File.read(state_path) })
+              job.state_file.save
+            end
+
+            job.paused!
             break
+          elsif (job.cancelling?)
+            Process.abort("Task aborted by user")
+            job.cancelled!
           end
         end
 
         thread.join
-
       rescue PTY::ChildExited
 
       end
 
+      if (File.exist?(log_path))
+        log_number = job.logs.count + 1
+        File.open(log_path) do |log_file|
+          log_file.each_line do |log_line|
+            log_entry = new Log({ order: log_number, contents: log_line })
+            job.logs.add(log_entry)
+            log_entry.save
+            log_number++
+          end
+        end
+      end
 
+      if (job.running? || job.paused?)
+        files_to_delete = job.output_files.map{ |x| x.id }
+        job.output_files.delete_all
+        JobFile.delete(files_to_delete)
+        Dir.glob("#{output_dir}/*").each do |output|
+          output_file = new JobFile({name: File.basename(output), contents: File.read(output) })
+          output_file.save
+          output_file_bridge = new OutputFile({job: job, job_file: output_file})
+          output_file_bridge.save
+        end
+      end
 
-      if (normal_exit)
+      if (job.running?)
         job.complete!
       end
     end
   end
 end
-
-# class CyclusWorker
-#   include Sidekiq::Worker
-#
-#   def get_sha1(path)
-#     `sha1sum #{path}`.split(" ")[0]
-#   end
-#
-#   def perform(job_id)
-#     begin
-#       job = Job.find(job_id)
-#
-#       if (job && job.input_file)
-#         job.update(status: 'Started')
-#
-#         path = nil
-#         delete_path = false
-#
-#         # First check to see if it's a permanent cyclus file
-#         if (
-#           job.input_file.path &&
-#           File.exist?(job.input_file.path) &&
-#           get_sha1(job.input_file.path) == job.input_file.sha1)
-#         then
-#           path = job.input_file.path
-#         end
-#
-#         # If not, see if it's a permanent custom file that's already been
-#         # uploaded to this worker
-#         if (!path && job.input_file.contents)
-#           shaPath = "/tmp/#{job.input_file.sha1}.xml"
-#
-#           if (File.exist?(shaPath) && get_sha1(shaPath) == job.input_file.sha1)
-#             path = shaPath
-#           end
-#
-#           if (!path)
-#             job.update(status: 'Retrieving input file')
-#             File.open(shaPath, 'w') { |file| file.write(job.input_file.contents) }
-#             path = shaPath
-#             delete_path = job.input_file.temporary
-#           end
-#         end
-#
-#         if (path)
-#           job.update(status: 'Executing cyclus')
-#           output_file = "/tmp/#{job_id}.sqllite"
-#           if system( "cyclus -o #{output_file} #{path}" )
-#             job.output_file = File.read(output_file);
-#             job.status = "Complete"
-#             job.save()
-#           else
-#             job.update(status: 'Error executing cyclus')
-#           end
-#
-#           if (delete_path)
-#             File.delete(path)
-#           end
-#         else
-#           job.update(status: 'Input file not found')
-#         end
-#       end
-#     rescue
-#
-#     end
-#   end
-# end

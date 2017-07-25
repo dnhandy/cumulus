@@ -5,5 +5,5 @@ class Job < ApplicationRecord
   has_many :results
   has_many :logs
 
-  enum status [:pending, :running, :finished, :cancelled, :paused, :resumed]
+  enum status [ :pending, :running, :finished, :cancelling, :cancelled, :pausing, :paused, :resuming ]
 end

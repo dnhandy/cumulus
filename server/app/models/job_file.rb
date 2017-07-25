@@ -1,0 +1,2 @@
+class JobFile < ApplicationRecord
+end

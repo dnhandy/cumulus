@@ -1,0 +1,331 @@
+<html>
+  <head>
+    <title>Cyclus server</title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.15/datatables.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.15/datatables.min.js"></script>
+  </head>
+  <body>
+    <div class="jumbotron text-center">
+      <h1>Cyclus Server</h1>
+      <p>A web-based service for running cyclus fuel cycle simulations</p>
+    </div>
+    <div class="container">
+      <div class="row">
+        <div class="col-md-3" style="overflow:auto; border-right:1px solid grey">
+          <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#submit-job-modal">
+            New Job
+          </button>
+          <h2>Job History</h2>
+          <table id="job-list" class="table">
+            <thead>
+              <tr>
+                <th>Job ID</th>
+                <th>Status</th>
+                <th>Last status change</th>
+              </tr>
+            </thead>
+            <tbody>
+
+            </tbody>
+          </table>
+        </div>
+        <div clas="col-md-9" id="details-div" style="overflow:auto; padding: 10px; background-color:lightgrey;min-height:600px;border-left:1px solid grey">
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="submit-job-modal">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Submit cyclus job</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="radio">
+                <label><input type="radio" name="input-file-type" value="standard" /> Use existing input file</label>
+              </div>
+              <div class="radio">
+                <label><input type="radio" name="input-file-type" value="custom" /> Upload new input file</label>
+              </div>
+              <hr />
+              <div id="standard">
+                <div class="form-group">
+                  <label for="fileID">Input File:</label>
+                  <select name="file-id" class="form-control">
+                    <optgroup id="cycamore-opt-group" label="Cycamore Input Files">
+                    </optgroup>
+                    <optgroup id="custom-opt-group" label="Custom Input Files">
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+              <div id="custom">
+                <div class="form-group">
+                  <label for="file-upload">Input File:</label>
+                  <input class="form-control" type="file" name="upload" />
+                </div>
+                <div class="checkbox">
+                  <label><input type="checkbox" name="permanent" /> Add file to list for re-use in future jobs</label>
+                </div>
+              </div>
+              <div id="error" style="color:red"></div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="submit-job-button" class="btn btn-primary">Save changes</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      function submitJob(inputFileID)
+      {
+        $.ajax({
+          url: 'api/jobs',
+          type: 'POST',
+          dataType: "json",
+          contentType: "application/json; charset=utf-8",
+          data: JSON.stringify({ input_file_id: inputFileID }),
+          success: function() {
+            window.location.reload();
+          },
+          error: function(){
+            $('#error').empty().append("Failed to submit job. An unknown error occured");
+          }
+        });
+      }
+
+      function validate()
+      {
+        return true;
+      }
+
+      function jobDetails(jobID)
+      {
+        $.ajax({
+          url: 'api/jobs/' + jobID,
+          success: function(response){
+            var fileSize = response.output_file_size;
+
+            var fileSizeUnits = ['bytes', 'K', 'M', 'G', 'T'];
+            var idx = 0;
+            while (fileSize >= 1024 && idx < fileSizeUnits.length)
+            {
+              fileSize /= 1024;
+              idx++;
+            }
+
+            var fileSizeStr = idx > 0 ?
+              (fileSize.toFixed(1) + ' ' + fileSizeUnits[idx]) :
+              (fileSize);
+
+            var details = $('<div style="background-color:white;padding:10px"></div>');
+            var queries = $('<div style="background-color:white;padding:10px;margin-top:10px"></div>');
+
+            $("#details-div").empty().append(details);
+            $("#details-div").append(queries);
+
+            $(details).append(
+              '<h2>Job #' + jobID + ' Details</h2>' +
+              '<table class="table"><thead><tr><th>Property</th><th>Value</th></tr></thead>' +
+              '<tbody>' +
+                '<tr><td><strong>Job ID:</strong></td><td>' + jobID + '</td></tr>' +
+                '<tr><td><strong>Created at:</strong></td><td>' + response.created_at + '</td></tr>' +
+                '<tr><td><strong>Last updated:</strong></td><td>' + response.updated_at + '</td></tr>' +
+                '<tr><td><strong>Input File:</strong></td><td<a download href="api/input_files/' + response.input.id + '/download">' + response.input.name + ' (' + fileSizeStr + ')</a></td></tr>' +
+                '<tr><td><strong>Status:</strong></td><td>' + response.status + '</td></tr>' +
+                '<tr><td><strong>Output File:</strong></td><td><a download href="api/jobs/' + jobID + '/output_file">Download SQLLite File (' + fileSizeStr + ')</a></td></tr>' +
+              '</tbody></table>'
+            );
+
+            var queryGroup = $('<div class="form-group"></div>');
+            var queryLabel = $('<label for="queries">Query:</label>')
+            var querySelect = $('<select class="form-control" id="query-select" name="queries"></select>');
+            $(queryGroup).append(queryLabel);
+            $(queryGroup).append(querySelect);
+            $(queryGroup).append($('<hr />'));
+
+            var resultsDiv = $('<div></div>');
+
+            $(queries).append($('<h3>Query Job Results</h3>'));
+            $(queries).append(queryGroup);
+            $(queries).append(resultsDiv);
+
+            $.ajax({
+              url: 'api/queries',
+              success: function(response)
+              {
+                $(querySelect).empty();
+                $(querySelect).append('<option value=""></option>');
+                response.forEach(function(query){
+                  $(querySelect).append('<option value="' + query.id + '">' + query.name + '</option>');
+                });
+
+                $(querySelect).change(function(){
+                  var queryID = $(querySelect).val();
+                  $(resultsDiv).empty();
+                  if (queryID && queryID != "")
+                  {
+                    $.ajax({
+                      url: 'api/queries/' + queryID + '/execute?jid=' + jobID,
+                      success: function(queryResponse){
+                        var table = $('<table class="table table-striped table-bordered"></table>');
+
+                        var thead = $('<thead></thead>');
+                        var theadRow = $('<tr></tr>');
+                        queryResponse.columns.forEach(function(col){
+                          $(theadRow).append($('<th>' + col + '</th>'));
+                        })
+                        $(thead).append(theadRow);
+
+                        var tbody = $('<tbody></tbody>');
+                        queryResponse.rows.forEach(function(row) {
+                          var tableRow = $('<tr></tr>');
+                          row.forEach(function(cell){
+                            $(tableRow.append($('<td>' + cell + '</td>')));
+                          });
+                          $(tbody).append(tableRow);
+                        });
+
+                        $(table).append(thead);
+                        $(table).append(tbody);
+
+                        $(resultsDiv).append($('<label>Results:</label>'))
+                        $(resultsDiv).append(table);
+                        $(table).DataTable();
+                      }
+                    });
+                  }
+                })
+              }
+            });
+
+          },
+          error: function(xhr){
+            $("#details-div").empty().append($('<h2> Unable to load job #' + jobID + '</h2'));
+          }
+        });
+      }
+
+      $(document).ready(function(){
+        //Populate job history
+        setInterval(function(){
+          $.ajax({
+            url: "api/jobs",
+            success: function(response) {
+              $("#job-list tbody").empty();
+              response.sort(function(a,b){
+                if (a.id < b.id)
+                {
+                  return 1;
+                }
+                if (a.id > b.id)
+                {
+                  return -1;
+                }
+                return 0;
+              }).forEach(function(job){
+                $("#job-list tbody").append($(
+                  '<tr><td><a href="javascript:void(0)" onclick="jobDetails(' + job.id + ')">' +
+                  job.id +
+                  '</a></td><td>' + job.status +
+                  '</td><td>' + new Date(job.updated_at).toString('yyyy-MM-dd hh:mm A') +
+                  '</td></tr>'
+                ));
+              });
+            }
+          });
+        }, 2000);
+
+        // Populate input file dropdown
+        $.ajax({
+          url: 'api/input_files',
+          success: function(response) {
+            var standardFiles = $("#cycamore-opt-group");
+            var customFiles = $("#custom-opt-group");
+
+            $(standardFiles).empty();
+            $(customFiles).empty();
+
+            response.forEach(function(inputFile){
+              if (!inputFile.temporary)
+              {
+                var option = $('<option value="' + inputFile.id + '">' + inputFile.name + '</option>');
+
+                if (inputFile.path && inputFile.path.trim().length > 0)
+                {
+                  standardFiles.append(option);
+                }
+                else
+                {
+                  customFiles.append(option);
+                }
+              }
+            });
+          }
+        });
+
+        //Set up event handlers
+        $("input[name='input-file-type']").change(function(){
+          if ($("input[name='input-file-type']:checked").val() === 'custom')
+          {
+            $('#standard').hide();
+            $('#custom').show();
+          }
+          else
+          {
+            $('#standard').show();
+            $('#custom').hide();
+          }
+        });
+        $("input[name='input-file-type'][value='standard']").click();
+
+        $('#submit-job-button').click(function(){
+          if (validate())
+          {
+            if ($("input[name='input-file-type']:checked").val() == 'Custom')
+            {
+              var permanent = $("input[name='permanent']").checked();
+              var file = $("input[name='upload']").files[0];
+              var fileReader = new FileReader();
+
+              reader.addEventListener("load", function() {
+                $.ajax({
+                  url: 'api/input_files',
+                  type: 'POST',
+                  data: { content: reader.result, temporary: !permanent },
+                  success: function(response){
+                    submitJob(response.id);
+                  },
+                  error: function() {
+                    $('#error').empty().append("Failed to upload file. An unknown error occured");
+                  }
+                });
+              });
+
+              if (file)
+              {
+                reader.readAsDataURL(file);
+              }
+            }
+            else
+            {
+              submitJob($("select[name='file-id']").val());
+            }
+          }
+        })
+      });
+    </script>
+  </body>
+</html>

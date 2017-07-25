@@ -1,0 +1,11 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  job: one
+  order: 1
+  contents: MyText
+
+two:
+  job: two
+  order: 1
+  contents: MyText

@@ -1,0 +1,27 @@
+<%= form_with(model: output_file, local: true) do |form| %>
+  <% if output_file.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(output_file.errors.count, "error") %> prohibited this output_file from being saved:</h2>
+
+      <ul>
+      <% output_file.errors.full_messages.each do |message| %>
+        <li><%= message %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= form.label :job_id %>
+    <%= form.text_field :job_id, id: :output_file_job_id %>
+  </div>
+
+  <div class="field">
+    <%= form.label :job_file_id %>
+    <%= form.text_field :job_file_id, id: :output_file_job_file_id %>
+  </div>
+
+  <div class="actions">
+    <%= form.submit %>
+  </div>
+<% end %>

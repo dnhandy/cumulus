@@ -1,0 +1,19 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <strong>Job:</strong>
+  <%= @result.job %>
+</p>
+
+<p>
+  <strong>Order:</strong>
+  <%= @result.order %>
+</p>
+
+<p>
+  <strong>Contents:</strong>
+  <%= @result.contents %>
+</p>
+
+<%= link_to 'Edit', edit_result_path(@result) %> |
+<%= link_to 'Back', results_path %>

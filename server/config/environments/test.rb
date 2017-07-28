@@ -41,5 +41,5 @@ Rails.application.configure do
   # config.action_view.raise_on_missing_translations = true
 
   ActiveModelSerializers.config.adapter = :json_api
-  Rails.application.routes.default_url_options[:host]= ENV['hostname'] || 'localhost:3000'
+  Rails.application.routes.default_url_options[:host]= ENV['HOSTNAME'] || 'localhost:3000'
 end

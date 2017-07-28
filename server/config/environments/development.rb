@@ -53,5 +53,5 @@ Rails.application.configure do
   config.file_watcher = ActiveSupport::EventedFileUpdateChecker
 
   ActiveModelSerializers.config.adapter = :json_api
-  Rails.application.routes.default_url_options[:host]= ENV['hostname'] || 'localhost:3000'
+  Rails.application.routes.default_url_options[:host]= ENV['HOSTNAME'] || 'localhost:3000'
 end

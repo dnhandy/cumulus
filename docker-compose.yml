@@ -16,6 +16,7 @@ services:
     environment:
       - RAILS_ENV=production
       - SECRET_KEY_BASE=857ee5594b934c60900bc0f965f1b809b7f7ef0f8fa6f3a71d558d4b1e72c4e71e8dc6ceb15ee5686bed9afd522ff49e8b17ada9df9b31203dc46690962ea5bc
+      - HOSTNAME=localhost/api
 
   db:
     image: postgres:alpine

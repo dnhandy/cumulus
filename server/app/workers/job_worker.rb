@@ -57,9 +57,9 @@ class JobWorker
             begin
               line_num = job.outputs.count + 1
               stdout.each do |line|
-                result = Result.new { job_id: job.id, order: line_num, contents: line }
-                result.save
-                line_num++
+                result = Result.new()
+                result.update( { job_id: job.id, order: line_num, contents: line } )
+                line_num = line_num + 1
               end
             rescue Errno::EIO
             end
@@ -111,10 +111,9 @@ class JobWorker
         log_number = job.logs.count + 1
         File.open(log_path) do |log_file|
           log_file.each_line do |log_line|
-            log_entry = new Log({ order: log_number, contents: log_line })
-            job.logs.add(log_entry)
-            log_entry.save
-            log_number++
+            log_entry = new Log()
+            log_entry.update({job_id: job.id, order: log_number, contents: log_line })
+            log_number = log_number + 1
           end
         end
       end

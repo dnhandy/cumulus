@@ -1,0 +1,15 @@
+FROM ruby:alpine
+
+RUN apk add --update ruby-dev build-base postgresql-client postgresql-dev sqlite-dev
+RUN gem install bundler
+
+COPY server/Gemfile /tmp/
+WORKDIR /tmp
+RUN bundle update && bundle install
+
+ENV app /app
+RUN mkdir $app
+WORKDIR $app
+ADD server/ $app
+
+CMD rm tmp/pids/server.pid; bundle exec rake db:migrate && bundle exec rails s 2>&1

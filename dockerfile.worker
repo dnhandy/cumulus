@@ -1,0 +1,15 @@
+FROM ruby:alpine
+
+RUN apk add --update ruby-dev build-base postgresql-client postgresql-dev sqlite-dev
+RUN gem install bundler
+
+COPY server/Gemfile /tmp/
+WORKDIR /tmp
+RUN bundle update && bundle install
+
+ENV app /app
+RUN mkdir $app
+WORKDIR $app
+ADD web/ $app
+
+CMD bundle exec sidekiq -e default

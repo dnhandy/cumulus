@@ -1,64 +1,58 @@
+require 'data_uri'
+require 'base64'
+
 class JobFilesController < ApplicationController
-  before_action :set_job_file, only: [:show, :edit, :update, :destroy]
+  before_action :set_job_file, only: [:show, :download, :destroy]
 
   # GET /job_files
-  # GET /job_files.json
   def index
     @job_files = JobFile.all
+    render json: @job_files
   end
 
   # GET /job_files/1
-  # GET /job_files/1.json
   def show
+    render json: @job_file
   end
 
-  # GET /job_files/new
-  def new
-    @job_file = JobFile.new
-  end
-
-  # GET /job_files/1/edit
-  def edit
+  #GET /job_files/1/download
+  def download
+    send_data @job_file.contents, filename: @job_file.name, type: "application/octet-stream"
   end
 
   # POST /job_files
-  # POST /job_files.json
   def create
-    @job_file = JobFile.new(job_file_params)
+    begin
+      @job_file = JobFile.new(job_file_params)
 
-    respond_to do |format|
+      encoding = params.permit(:encoding)[:encoding]
+
+      if (@job_file.contents)
+        case encoding
+        when "base64"
+          @job_file.contents = Base64.decode64(@job_file.contents)
+        when "datauri"
+          uri = URI::Data.new(@job_file.contents)
+          @job_file.contents = uri.data
+        else
+        end
+      end
+
       if @job_file.save
-        format.html { redirect_to @job_file, notice: 'Job file was successfully created.' }
-        format.json { render :show, status: :created, location: @job_file }
+        render json: @job_file
       else
-        format.html { render :new }
-        format.json { render json: @job_file.errors, status: :unprocessable_entity }
+        render json: @job_file.errors, status: :unprocessable_entity
       end
-    end
-  end
-
-  # PATCH/PUT /job_files/1
-  # PATCH/PUT /job_files/1.json
-  def update
-    respond_to do |format|
-      if @job_file.update(job_file_params)
-        format.html { redirect_to @job_file, notice: 'Job file was successfully updated.' }
-        format.json { render :show, status: :ok, location: @job_file }
-      else
-        format.html { render :edit }
-        format.json { render json: @job_file.errors, status: :unprocessable_entity }
-      end
+    rescue
+      puts "Exception raised creating new file: \"#{$!.message}\""
+      raise
     end
   end
 
   # DELETE /job_files/1
-  # DELETE /job_files/1.json
   def destroy
     @job_file.destroy
-    respond_to do |format|
-      format.html { redirect_to job_files_url, notice: 'Job file was successfully destroyed.' }
-      format.json { head :no_content }
-    end
+    head :no_content
   end
 
   private
@@ -69,6 +63,6 @@ class JobFilesController < ApplicationController
 
     # Never trust parameters from the scary internet, only allow the white list through.
     def job_file_params
-      params.require(:job_file).permit(:name, :contents)
+      p = params.require(:job_file).permit(:name, :contents)
     end
 end

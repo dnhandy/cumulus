@@ -1,0 +1,10 @@
+{
+  "lambda" : {
+    "min" : 0.001,
+    "max" : 5,
+    "profile" : "convex",
+    "rate" : 1.05,
+    "inflection_point" : 200
+  },
+  "epochs" : 400
+}

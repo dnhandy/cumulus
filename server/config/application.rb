@@ -10,5 +10,8 @@ module Server
   class Application < Rails::Application
       config.load_defaults 5.1
       config.api_only = true
+      if (ENV['RAILS_ENV'] == 'production')
+        config.active_record.cache_timestamp_format = :nsec
+      end
   end
 end

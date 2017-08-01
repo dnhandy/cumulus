@@ -59,33 +59,49 @@ class JobsController < ApplicationController
 
   # PATCH /jobs/1/pause
   def pause
-    if @job.running? || @job.pending?
-      @job.pausing!
-      head :no_content
-    else
-      head 403
+    begin
+      if @job.running? || @job.pending?
+        if @job.running?
+          @job.pausing!
+        else
+          @job.paused!
+        end
+        head :no_content
+      else
+        head 403
+      end
+    rescue
+      puts $!
     end
   end
 
   # PATCH /jobs/1/resume
   def resume
-    if @job.paused?
-      @job.resuming!
-      JobWorker.perform_async(@job.id)
-      head :no_content
-    else
-      head 403
+    begin
+      if @job.paused?
+        @job.resuming!
+        JobWorker.perform_async(@job.id)
+        head :no_content
+      else
+        head 403
+      end
+    rescue
+      puts $!
     end
   end
 
   # PATCH /jobs/1/cancel
   def cancel
-    if (@job.pending || @job.running? || @job.pausing? || @job.paused? || @job.resuming?)
-      @job.cancelling!
+  begin
+    if (@job.pending? || @job.running? || @job.pausing? || @job.paused? || @job.resuming?)
+      @job.cancelled!
       head :no_content
     else
       head 403
     end
+  rescue
+    puts $!
+  end
   end
 
   # DELETE /jobs/1

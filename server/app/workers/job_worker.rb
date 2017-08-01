@@ -17,6 +17,7 @@ class JobWorker
         log(job_id, "Executing task...",  true)
         stdout, stdin, pid = PTY.spawn(cmd)
 
+puts "The pid is #{pid}"
 
         last_processed_line = 0
 
@@ -36,6 +37,7 @@ class JobWorker
                 Timeout::timeout(600) do
                   begin
                     while (Process.kill(0, pid))
+                      puts 'tick'
                       sleep(2)
                     end
                   rescue Errno::ESRCH
@@ -43,6 +45,7 @@ class JobWorker
                 end
                 puts "Process terminated"
               rescue Timeout::Error
+                puts 'crap...'
                 log(job_id, "Pause timed out. Terminating...", true)
                 Process.abort()
               end
@@ -52,20 +55,21 @@ puts "Looking for state file"
                 puts "Deleting state file"
                 job.state_file.delete
               end
-sleep 10
-puts "Looking on FS"
-puts `ls -R #{@ctx_dir}`
+
+puts 'WTF?'
               if (File.exist?( @state_path ))
                 puts "Found on FS"
                 log(job_id, "Saving state...", true)
-                state_file = new JobFile({ name: File.basename(@state_path), contents: File.read(@state_path) })
+                state_file = new JobFile({
+                  name: File.basename(@state_path),
+                  contents: File.read(@state_path) })
                 if (state_file.save)
                   job.update({state_file: state_file})
                 end
               end
 
               job.paused!
-            elsif (job.cancelling?)
+            elsif (job.cancelled?)
               log(job_id, "Cancelling task...", true)
               Process.abort()
               job.cancelled!
@@ -83,7 +87,9 @@ puts `ls -R #{@ctx_dir}`
         rescue PTY::ChildExited
         end
 
+puts "waiting..."
         Process.waitpid(pid, Process::WNOHANG)
+puts 'waited'
         log(job_id, "Task terminated", true)
         finished = true
 

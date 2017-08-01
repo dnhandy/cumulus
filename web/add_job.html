@@ -1,0 +1,173 @@
+<html>
+  <head>
+    <title>Cumulus</title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.15/datatables.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.15/datatables.min.js"></script>
+  </head>
+  <body>
+    <nav class="navbar navbar-toggleable-md navbar-inverse bg-inverse fixed-top">
+      <a class="navbar-brand" href="index.html">Cumulus</a>
+      <div class="collapse navbar-collapse" id="navbarsExampleDefault">
+        <ul class="navbar-nav mr-auto">
+          <li class="nav-item ">
+            <a class="nav-link" href="index.html">Home</a>
+          </li>
+          <li class="nav-item active">
+            <a class="nav-link">Add Job</span></a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="container">
+      <h2> Add a New Job</h2>
+      <form class="form-horizontal">
+        <div class="form-group">
+          <label class="control-label" for="name">Name:</label>
+          <input class="form-control" name="name" id="name-input" type="text" />
+        </div>
+
+        <div class="form-group">
+          <label class="control-label" for="exe">Executable:</label>
+          <div class="button-group">
+            <input class="form-control" name="exe" id="exe-input" type="file" />
+            <button class="btn btn-default" data-loading-text="Uploading..." type="button" id="exe-upload" disabled="disabled">Upload</a>
+            <a download id="exe-download"></a>
+            <a style="display:none" href="javascript:void" id="exe-change">Change selection</a>
+          </div>
+        </div>
+
+        <h3>Input files</h3>
+        <p>
+          These will all be included in a flat directory, and the path to that
+          directory will be provided to the executable as 'exe_name -i /path/to/inputs'
+        </p>
+
+        <div class="form-group">
+          <label class="control-label" for="add-input">Add Input:</label>
+          <div class="button-group">
+            <input class="form-control" name="add-input" id="input-input" type="file" />
+            <button class="btn btn-default" type="button" id="input-upload" disabled="disabled">Upload</a>
+          </div>
+        </div>
+
+        <table class="table" id="input-table">
+        </table>
+      </form>
+    </div>
+
+    <!--<div class="modal fade" id="submit-job-modal">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Submit cyclus job</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="radio">
+                <label><input type="radio" name="input-file-type" value="standard" /> Use existing input file</label>
+              </div>
+              <div class="radio">
+                <label><input type="radio" name="input-file-type" value="custom" /> Upload new input file</label>
+              </div>
+              <hr />
+              <div id="standard">
+                <div class="form-group">
+                  <label for="fileID">Input File:</label>
+                  <select name="file-id" class="form-control">
+                    <optgroup id="cycamore-opt-group" label="Cycamore Input Files">
+                    </optgroup>
+                    <optgroup id="custom-opt-group" label="Custom Input Files">
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+              <div id="custom">
+                <div class="form-group">
+                  <label for="file-upload">Input File:</label>
+                  <input class="form-control" type="file" name="upload" />
+                </div>
+                <div class="checkbox">
+                  <label><input type="checkbox" name="permanent" /> Add file to list for re-use in future jobs</label>
+                </div>
+              </div>
+              <div id="error" style="color:red"></div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="submit-job-button" class="btn btn-primary">Save changes</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>-->
+
+    <script type="text/javascript">
+      $(document).ready(function(){
+        $('#exe-input').change(function(){
+          if (document.getElementById("exe-input").files.length > 0)
+          {
+            $('#exe-upload').prop("disabled", false);
+          }
+          else
+          {
+            $('#exe-upload').prop("disabled", true);
+          }
+        });
+
+        $('#exe-upload').off().on('click', function(){
+          if ($('#exe-input').val())
+          {
+            $('#exe-upload').button('loading');
+            $('#exe-input').prop('disabled', true);
+            var reader = new FileReader();
+            var file = $('#exe-input')[0].files[0]
+
+            reader.addEventListener("load", function(){
+              $.ajax({
+                url: 'api/job_files',
+                type: 'POST',
+                data:
+                {
+                  name: $('#exe-input').val(),
+                  contents: reader.readAsDataURL(file)
+                },
+                success: function(response)
+                {
+                  $('#exe-upload').button('reset');
+                  $('#exe-upload').prop(disabled, true);
+                  $('#exe-input').prop(disabled, true);
+                  $('#exe-download').attr('href', 'api/job_files/' + response.data.id)
+                  $('#exe-download').html(response.data.attributes.name)
+                  $('#exe-change').show();
+                  window.executable_id=response.data.id
+                },
+                error: function(){
+                  $('#exe-upload').button('reset');
+                  alert('Failed to upload file')
+                }
+              })
+            });
+
+            if (file)
+            {
+              reader.readAsDataURL(file);
+            }
+            else
+            {
+              $('#exe-upload').button('reset');
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

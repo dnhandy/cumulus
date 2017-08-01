@@ -9,6 +9,10 @@ Rails.application.routes.draw do
     end
   end
   resources :job_files, defaults: {format: :json} do
+    collection do
+      get 'executables'
+      get 'inputs'
+    end
     member do
       get 'download'
     end

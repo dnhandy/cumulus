@@ -10,6 +10,16 @@ class JobFilesController < ApplicationController
     render json: @job_files
   end
 
+  # GET /job_files/inputs
+  def inputs
+    render json: InputFile.all.select{ |x| x.job_file }.map{ |x| x.job_file }.uniq
+  end
+
+  # GET /job_files/executables
+  def executables
+    render json: Job.all.select{ |x| x.executable }.map{ |x| x.executable }.uniq
+  end
+
   # GET /job_files/1
   def show
     render json: @job_file

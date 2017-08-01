@@ -11,5 +11,5 @@ class Job < ApplicationRecord
   has_many :inputs, through: :input_files, source: :job_file
   has_many :outputs, through: :output_files, source: :job_file
 
-  enum status: [ :pending, :running, :finished, :cancelling, :cancelled, :pausing, :paused, :resuming, :failed ]
+  enum status: [ :pending, :running, :finished, :cancelled, :pausing, :paused, :resuming, :failed ]
 end

@@ -14,6 +14,7 @@ def setPauseHandler(pause_handler):
 
 def log(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+    sys.stderr.flush()
 
 def parse_args(program_description):
     global input_dir

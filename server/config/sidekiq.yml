@@ -1,1 +1,1 @@
-:concurrency: <%=  ENV['RAILS_MAX_THREADS']  %>
+:concurrency: <%=  ENV['SIDEKIQ_WORKERS']  %>

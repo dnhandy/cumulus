@@ -1,57 +1,59 @@
 class JobsController < ApplicationController
-  before_action :set_job, only: [:show, :pause, :resume, :cancel, :destroy]
+  before_action :set_job, only: [:show, :results, :logs, :pause, :resume, :cancel, :destroy]
 
   # GET /jobs
   def index
-    begin
-      @jobs = Job.all
-      render json: @jobs
-    rescue
-      logger.warn "Exception raised listing jobs: \"#{$!.message}\""
-    end
+    @jobs = Job.all
+    render json: @jobs
   end
 
   # GET /jobs/1
   def show
-    begin
-      render json: @job
-    rescue
-      logger.warn "Exception raised showing job: \"#{$!.message}\""
-    end
+    render json: @job
+  end
+
+  # GET /jobs/1/results
+  def results
+    render json: @job.results
+  end
+
+  # GET /jobs/1/logs
+  def logs
+    render json: @job.logs
   end
 
   # POST /jobs
   def create
-    begin
-      executable_id = params.permit(:executable_id)[:executable_id]
-      input_file_ids = params.permit(:input_file_ids)[:input_file_ids]
-      if (executable_id)
-        executable = JobFile.find(executable_id)
-        if executable
-          @job = Job.new(job_params)
-          @job.status = :pending
-          @job.executable = executable
+    executable_id = params.permit(:executable_id)[:executable_id]
+    input_file_ids = params.permit(inputs: [])[:inputs]
+    if (executable_id)
+      executable = JobFile.find(executable_id)
+      if executable
+        @job = Job.new(job_params)
+        @job.status = :pending
+        @job.executable = executable
+
+        if @job.save
           if input_file_ids
             input_file_ids.each do |file_id|
               file = JobFile.find(file_id)
-              @job.inputs << file if file
+              if file
+                input_file = InputFile.new({job: @job, job_file: file})
+                input_file.save
+              end
             end
           end
-          if @job.save
-            JobWorker.perform_async(@job.id)
-            render json: @job
-          else
-            render json: @job.errors, status: :unprocessable_entity
-          end
+
+          JobWorker.perform_async(@job.id)
+          render json: @job
         else
-          render json: {"errors": ["Executable '#{executable_id}' not found"]}, status: 400
+          render json: @job.errors, status: :unprocessable_entity
         end
       else
-        render json: {"errors": ["Executable ID required"]}, status: 400
+        render json: {"errors": ["Executable '#{executable_id}' not found"]}, status: 400
       end
-    rescue
-      logger.warn "Exception raised creating new job: \"#{$!.message}\""
-      raise
+    else
+      render json: {"errors": ["Executable ID required"]}, status: 400
     end
   end
 

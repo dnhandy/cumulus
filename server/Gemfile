@@ -46,5 +46,5 @@ gem 'sidekiq'
 gem 'redis-namespace'
 gem 'pg'
 gem 'data_uri'
-
+gem 'rb-inotify'
 gem 'active_model_serializers', '~> 0.10'

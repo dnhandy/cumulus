@@ -1,5 +1,7 @@
 FROM nginx:alpine
 
-RUN mkdir -p /data/www
+RUN mkdir -p /data/www/images
+
 ADD web/index.html /data/www
+ADD web/images /data/www/images
 ADD web/nginx.conf /etc/nginx

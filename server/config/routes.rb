@@ -1,6 +1,8 @@
 Rails.application.routes.draw do
   resources :jobs, defaults: {format: :json} do
     member do
+      get 'results'
+      get 'logs'
       patch 'pause'
       patch 'resume'
       patch 'cancel'

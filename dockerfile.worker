@@ -7,9 +7,13 @@ COPY server/Gemfile /tmp/
 WORKDIR /tmp
 RUN bundle update && bundle install
 
+RUN mkdir -p "`python3 -m site --user-site`"
+ADD modules/python/cumulus.py /tmp
+RUN mv /tmp/cumulus.py "`python3 -m site --user-site`"
+
 ENV app /app
 RUN mkdir $app
 WORKDIR $app
 ADD server/ $app
 
-CMD bundle exec sidekiq -e default
+CMD bundle exec sidekiq

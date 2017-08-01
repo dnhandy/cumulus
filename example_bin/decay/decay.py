@@ -66,25 +66,40 @@ lambda_profiles = {
 cumulus.parse_args("Test decay function")
 cumulus.setPauseHandler(pause_handler)
 
+cumulus.log('Beginning work')
+
 if ('config.json' in cumulus.input_files):
     with open(os.path.join(cumulus.input_dir, "config.json")) as json_config:
         config = json.load(json_config)
 
+    start_epoch = 1
     max_epochs = config['epochs']
 
+    if (cumulus.resume):
+        with open(cumulus.state_file, 'r') as state_file:
+            start_epoch = int(state_file.readline())
+
     if (config['lambda']['profile'] in lambda_profiles):
-        for epoch in range(1, max_epochs + 1):
+        for epoch in range(start_epoch, max_epochs + 1):
+            if (paused):
+                with open(cumulus.state_file, 'w') as state_file:
+                    state_file.write(str(epoch))
+                break;
+
+            if (epoch % 20 == 0):
+                cumulus.log('Heartbeat: ', epoch)
             lambda_val = lambda_profiles[config['lambda']['profile']](epoch)
             if ('reflected' in config['lambda'] and config['lambda']['reflected']):
                 lambda_val = config['lambda']['max'] + config['lambda']['min'] - lambda_val
-            print (epoch, " || ", lambda_val)
-            time.sleep(1)
-            #TODO: Run the network with this lambda
+            print (epoch, ", ", lambda_val)
 
+            time.sleep(0.5)
+
+            #TODO: Run the network with this lambda
     else:
         cumulus.log("unknown profile: ", config['lambda']['profile'])
         exit(2)
 
 else:
-    cumulus.log("Config file not found: ", config_file, cumulus.input_files)
+    cumulus.log("Config file not found: config.json")
     exit(1)

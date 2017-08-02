@@ -8,6 +8,23 @@
     <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.15/datatables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.3.0/Chart.bundle.js"></script>
+
+    <style>
+      #log,#results{
+        width:calc(100%-20px);
+        min-height:50px;
+        max-height:500px;
+        overflow:auto;
+        background-color:#e1e1e1;
+        padding:10px;
+      }
+
+      .console-line
+      {
+        font-family: monospace;
+      }
+    </style>
   </head>
   <body>
     <nav class="navbar navbar-toggleable-md navbar-inverse bg-inverse fixed-top">
@@ -31,9 +48,9 @@
           <table id="job-list" class="table">
             <thead>
               <tr>
-                <th>Job ID</th>
                 <th>Status</th>
-                <th>Last status change</th>
+                <th>Job ID</th>
+                <th>Name</th>
               </tr>
             </thead>
             <tbody>
@@ -56,9 +73,9 @@
             <div class="row" style="padding:10px;margin:10px;background-color:white">
               <ul class="nav nav-tabs">
                 <li><a id="details-tab" data-toggle="tab" href="#details">Details</a></li>
-                <li><a id="visualization-tab" data-toggle="tab" href="#visualization">Visualization</a></li>
-                <li><a id="results-tab" data-toggle="tab" href="#results">Results</a></li>
-                <li><a id="log-tab" data-toggle="tab" href="#log">Log</a></li>
+                <li><a id="visualization-tab" data-toggle="tab" href="#visualization-container">Visualization</a></li>
+                <li><a id="results-tab" data-toggle="tab" href="#results-container">Results</a></li>
+                <li><a id="log-tab" data-toggle="tab" href="#log-container">Log</a></li>
               </ul>
 
               <div class="tab-content">
@@ -90,9 +107,21 @@
                     </tr>
                   </table>
                 </div>
-                <div id="visualization" class="tab-pane fade"></div>
-                <div id="results" class="tab-pane fade"></div>
-                <div id="log" class="tab-pane fade"></div>
+                <div id="visualization-container" class="tab-pane fade" style="padding:10px">
+                  <div id="visualization">
+                    <canvas id="visualization-canvas"></canvas>
+                  </div>
+                </div>
+                <div id="results-container" class="tab-pane fade" style="padding:10px">
+                  <div id="results">
+
+                  </div>
+                </div>
+                <div id="log-container" class="tab-pane fade" style="padding:10px">
+                  <div id="log">
+
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -112,27 +141,337 @@
         running: "images/running_icon.png"
       };
 
-      function submitJob(inputFileID)
+      jobDetailsInterval = null;
+      lastResultID = -1;
+      lastLogID = -1;
+
+      chartColors = [
+        '#2A7F80',
+        '#59A861',
+        '#E3C842',
+        '#F29554',
+        '#EE716C',
+      ];
+
+      visualizationChart = null
+      visualizationConfig =
+      {
+        type: 'line',
+        data:
+        {
+          labels: [],
+          datasets: [{
+            label: "Column 1",
+            borderColor: chartColors[0],
+            backgroundColor: chartColors[0],
+            data: [],
+            fill: false,
+            cubicInterpolationMode: 'monotone'
+          }]
+        },
+        options:
+        {
+          responsive: true,
+          title:
+          {
+            display:true,
+            text:'Results'
+          },
+          tooltips:
+          {
+              mode: 'index'
+          },
+          scales:
+          {
+            xAxes:
+            [
+              {
+                display: true,
+                ticks: {
+                  callback: function(value, index, values) {
+                    return parseInt(value);
+                  },
+                  autoSkip: true,
+                  maxTicksLimit: 20
+                }
+              }
+            ],
+            yAxes:
+            [
+              {
+                display: true
+              }
+            ]
+          }
+        }
+      };
+
+      oldInputs = null
+      oldOutputs = null
+
+      $(document).ready(function(){
+        //Populate job history
+        getJobs();
+        var context = document.getElementById("visualization-canvas").getContext("2d");
+        visualizationChart = new Chart(context, visualizationConfig);
+        setInterval(getJobs, 5000);
+      });
+
+      function getJobs()
       {
         $.ajax({
-          url: 'api/jobs',
-          type: 'POST',
-          dataType: "json",
-          contentType: "application/json; charset=utf-8",
-          data: JSON.stringify({ input_file_id: inputFileID }),
-          success: function() {
-            window.location.reload();
-          },
-          error: function(){
-            $('#error').empty().append("Failed to submit job. An unknown error occured");
+          url: "api/jobs",
+          success: function(response) {
+            $("#job-list tbody").empty();
+
+            var jobs = response.data.sort(sortByIDDesc);
+
+            jobs.forEach(function(job){
+              var id = job.id
+              var status = job.attributes.status
+              var name = job.attributes.name
+
+              $("#job-list tbody").append($(
+                '<tr><td><img height="16" width="16" src="' +
+                status_icons[status] +'" alt="' + makeCap(status) + '" title="' + makeCap(status) + '" />' +
+                '</a></td><td><strong>' + id +
+                '</td><td><a href="javascript:void(0)" onclick="jobDetails(' + id + ')">' + name +
+                '</a></td></tr>'
+              ));
+            });
           }
         });
       }
 
-      function validate()
+      function jobDetails(jobID)
       {
-        return true;
+        //Clear things out
+        visualizationConfig.data = {
+          labels: [],
+          datasets: [{
+            label: "Column 1",
+            borderColor: chartColors[0],
+            backgroundColor: chartColors[0],
+            data: [],
+            fill: false,
+            cubicInterpolationMode: 'monotone'
+          }]
+        };
+        visualizationChart.update();
+
+        $('#results').empty();
+        $('#log').empty();
+        lastResultID = -1;
+        lastLogID = -1;
+
+        refreshDisplay(jobID);
+        $("#details-div").show();
+        if (jobDetailsInterval)
+        {
+          clearInterval(jobDetailsInterval)
+        }
+        $("#details-tab").click();
+        jobDetailsInterval = setInterval(function(){refreshDisplay(jobID);}, 1000);
       }
+
+      function refreshDisplay(jobID)
+      {
+        $.ajax({
+          url: 'api/jobs/' + jobID,
+          success: function(response){
+            populateDetailsTab(jobID, response);
+
+            $.ajax({
+              url: 'api/jobs/' + jobID + '/results',
+              success: function(response){
+                var results = response.data.sort(sortByID);
+
+                results.forEach(function (result){
+                  if (parseInt(result.id) > lastResultID)
+                  {
+                    var resultText = result.attributes.contents;
+                    // Populate the results pane
+                    $('#results').append('<p class="console-line">' + resultText + '</p>');
+                    lastResultID = result.id
+                    $('#results').scrollTop($("#results").prop("scrollHeight"));
+
+                    //Populate the visualization if it's csv
+                    if (resultText.trim().match(/^\s*\w+\s*(?:,\s*(?:[^\s"]*|"[^"]*")\s*)*$/))
+                    {
+                      var columns = resultText.split(',');
+                      visualizationConfig.data.labels.push(columns[0].trim());
+
+                      for (var i = 1; i < columns.length; i++)
+                      {
+                        var dataset = visualizationConfig.data.datasets[i - 1];
+                        if (!dataset)
+                        {
+                          dataset = {
+                            label: "Column " + i,
+                            data: [],
+                            borderColor: chartColors[chartColors.length % i],
+                            backgroundColor: chartColors[chartColors.length % i],
+                            fill: false,
+                            cubicInterpolationMode: 'monotone'
+                          }
+                          visualizationConfig.data.datasets.push(dataset);
+                        }
+                        dataset.data.push(columns[i].trim());
+                      }
+                    }
+                  }
+                });
+                visualizationChart.update();
+              }
+            });
+
+            $.ajax({
+              url: 'api/jobs/' + jobID + '/logs',
+              success: function(response){
+                var logs = response.data.sort(sortByID);
+
+                logs.forEach(function (log){
+                  if (parseInt(log.id) > lastLogID)
+                  {
+                    $('#log').append('<p class="console-line">[' + log.attributes.application + '] ' + log.attributes.contents + '</p>');
+                    lastLogID = log.id
+                    $('#log').scrollTop($("#log").prop("scrollHeight"));
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      function populateDetailsTab(jobID, response)
+      {
+        status = response.data.attributes.status
+        $("#details-header").empty().append(
+          '<h2>' + response.data.attributes.name + '</h2>' +
+          '<h3><img height="32" width="32" src="' +
+          status_icons[status] +'" alt="' + makeCap(status) + '" title="' + makeCap(status) + '" />&nbsp;' +
+          makeCap(status) + '</h3>'
+        );
+
+        $('#cancel-btn').off().on('click', function(){
+          $.ajax({
+            url: 'api/jobs/' + jobID + '/cancel',
+            type: 'PATCH'
+          })
+        });
+
+        $('#pause-btn').off().on('click', function(){
+          $.ajax({
+            url: 'api/jobs/' + jobID + '/pause',
+            type: 'PATCH'
+          })
+        });
+
+        $('#resume-btn').off().on('click', function(){
+          $.ajax({
+            url: 'api/jobs/' + jobID + '/resume',
+            type: 'PATCH'
+          })
+        });
+
+        if (status === 'paused' || status === 'running' || status === 'pending')
+        {
+          $('#cancel-btn').show();
+        }
+        else
+        {
+          $('#cancel-btn').hide();
+        }
+
+        if (status === 'paused')
+        {
+          $('#resume-btn').show();
+        }
+        else
+        {
+          $('#resume-btn').hide();
+        }
+
+        if (status === 'running' || status === 'pending')
+        {
+          $('#pause-btn').show();
+        }
+        else
+        {
+          $('#pause-btn').hide();
+        }
+
+        if ($('#job-name').html() !== response.data.attributes.name)
+        {
+          $('#job-name').empty().append(response.data.attributes.name);
+        }
+
+        if ($('#job-status').html() !== makeCap(status))
+        {
+          $('#job-status').empty().append(makeCap(status));
+        }
+
+        if ($('#submit-date').html() != response.data.attributes['created-at'])
+        {
+          $('#submit-date').empty().append(response.data.attributes['created-at']);
+        }
+
+        if ($('#change-date').html() != response.data.attributes['updated-at'])
+        {
+          $('#change-date').empty().append(response.data.attributes['updated-at']);
+        }
+
+        if (response.data.relationships)
+        {
+          if (response.data.relationships.executable &&
+            response.data.relationships.executable.data)
+          {
+            makeFileLink(response.data.relationships.executable.data.id, $('#executable-link'));
+          }
+
+          var inputs = response.data.relationships.inputs
+          if (JSON.stringify(inputs) != JSON.stringify(oldInputs))
+          {
+            oldInputs = inputs;
+            $('#input-list').empty();
+
+            if (inputs && inputs.data)
+            {
+              inputs.data.forEach(function(input){
+                var link = $('<a></a>');
+                makeFileLink(input.id, link);
+                var item = $('<li></li>');
+                $(item).append(link)
+                $('#input-list').append(item);
+              })
+            }
+          }
+
+          var outputs = response.data.relationships.outputs
+          if (JSON.stringify(outputs) !== JSON.stringify(oldOutputs))
+          {
+            oldOutputs = outputs;
+            $('#output-list').empty();
+            if (outputs && inputs.data)
+            {
+              outputs.data.forEach(function(output){
+                var link = $('<a></a>');
+                makeFileLink(output.id, link);
+                var item = $('<li></li>');
+                $(item).append(link)
+                $('#output-list').append(item);
+              })
+            }
+          }
+        }
+        else
+        {
+          $('#executable-link').attr('href', '#');
+          $('#executable-link').empty();
+        }
+      }
+
 
       function makeFileLink(fileID, link)
       {
@@ -171,196 +510,6 @@
         return sortByID(b, a);
       }
 
-      function jobDetails(jobID)
-      {
-        $.ajax({
-          url: 'api/jobs/' + jobID,
-          success: function(response){
-            $("#details-div").show();
-
-            status = response.data.attributes.status
-            $("#details-header").empty().append(
-              '<h2>' + response.data.attributes.name + '</h2>' +
-              '<h3><img height="32" width="32" src="' +
-              status_icons[status] +'" alt="' + makeCap(status) + '" title="' + makeCap(status) + '" />&nbsp;' +
-              makeCap(status) + '</h3>'
-            );
-
-            $('#cancel-btn').off().on('click', function(){
-              $.ajax({
-                url: 'api/jobs/' + jobID + '/cancel',
-                type: 'PATCH',
-                success: function(){ jobDetails(jobID)},
-                error: function(){alert('Failed to cancel job')}
-              })
-            });
-
-            $('#pause-btn').off().on('click', function(){
-              $.ajax({
-                url: 'api/jobs/' + jobID + '/pause',
-                type: 'PATCH',
-                success: function(){ jobDetails(jobID)},
-                error: function(){alert('Failed to pause job')}
-              })
-            });
-
-            $('#resume-btn').off().on('click', function(){
-              $.ajax({
-                url: 'api/jobs/' + jobID + '/resume',
-                type: 'PATCH',
-                success: function(){ jobDetails(jobID)},
-                error: function(){alert('Failed to resume job')}
-              })
-            });
-
-            if (status === 'paused' || status === 'running' || status === 'pending')
-            {
-              $('#cancel-btn').show();
-            }
-            else
-            {
-              $('#cancel-btn').hide();
-            }
-
-            if (status === 'paused')
-            {
-              $('#resume-btn').show();
-            }
-            else
-            {
-              $('#resume-btn').hide();
-            }
-
-            if (status === 'running' || status === 'pending')
-            {
-              $('#pause-btn').show();
-            }
-            else
-            {
-              $('#pause-btn').hide();
-            }
-
-            $('#job-name').empty().append(response.data.attributes.name);
-            $('#job-status').empty().append(makeCap(status));
-            //TODO: submit date
-            //TODO: change date
-
-            $('#executable-link').empty();
-            $('#input-list').empty();
-            $('#output-list').empty();
-
-            $('#executable-link').attr('href', '#');
-            if (response.data.relationships)
-            {
-              if (response.data.relationships.executable &&
-                response.data.relationships.executable.data)
-              {
-                makeFileLink(response.data.relationships.executable.data.id, $('#executable-link'));
-              }
-
-              var inputs = response.data.relationships.inputs
-              if (inputs && inputs.data)
-              {
-                inputs.data.forEach(function(input){
-                  var link = $('<a></a>');
-                  makeFileLink(input.id, link);
-                  var item = $('<li></li>');
-                  $(item).append(link)
-                  $('#input-list').append(item);
-                })
-              }
-
-              var outputs = response.data.relationships.outputs
-              if (outputs && inputs.data)
-              {
-                outputs.data.forEach(function(output){
-                  var link = $('<a></a>');
-                  makeFileLink(output.id, link);
-                  var item = $('<li></li>');
-                  $(item).append(link)
-                  $('#output-list').append(item);
-                })
-              }
-            }
-
-            var doVisualization = false;
-            //TODO: Visualization stuff
-
-            if (doVisualization)
-            {
-              $("#visualization-tab").show();
-            }
-            else {
-              $("#visualization-tab").hide();
-            }
-
-            $("#details-tab").click();
-
-            $('#visualization').empty();
-            $('#results').empty();
-            $('#log').empty();
-
-            $.ajax({
-              url: 'api/jobs/' + jobID + '/results',
-              success: function(response){
-                var results = response.data.sort(sortByID);
-
-                results.forEach(function (result){
-                  $('#results').append('<p>' + result.attributes.contents + '</p>');
-                });
-              }
-            });
-
-            $.ajax({
-              url: 'api/jobs/' + jobID + '/logs',
-              success: function(response){
-                var logs = response.data.sort(sortByID);
-
-                logs.forEach(function (log){
-                  $('#log').append('<p>[' + log.attributes.application + '] ' + log.attributes.contents + '</p>');
-                });
-              }
-            });
-          },
-          error: function(xhr){
-            alert('Unable to load job #' + jobID);
-          }
-        });
-      }
-
-      function getJobs()
-      {
-        $.ajax({
-          url: "api/jobs",
-          success: function(response) {
-            $("#job-list tbody").empty();
-
-            var jobs = response.data.sort(sortByIDDesc);
-
-            jobs.forEach(function(job){
-              var id = job.id
-              var status = job.attributes.status
-              var name = job.attributes.name
-
-              $("#job-list tbody").append($(
-                '<tr><td><img height="16" width="16" src="' +
-                status_icons[status] +'" alt="' + makeCap(status) + '" title="' + makeCap(status) + '" />' +
-                '</a></td><td><strong>' + id +
-                '</td><td><a href="javascript:void(0)" onclick="jobDetails(' + id + ')">' + name +
-                '</a></td></tr>'
-              ));
-            });
-          }
-        });
-      }
-
-      $(document).ready(function(){
-        //Populate job history
-        setInterval(function(){
-          getJobs();
-        }, 2000);
-
-      });
     </script>
   </body>
 </html>

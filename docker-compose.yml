@@ -4,7 +4,7 @@ services:
   web:
     image: cumulus_web
     depends_on:
-      - api
+      - worker
     ports:
       - 80:80
     restart: always
@@ -13,7 +13,7 @@ services:
     image: cumulus_api
     depends_on:
       - redis
-      - db
+
     environment:
       - RAILS_ENV=production
       - SECRET_KEY_BASE=857ee5594b934c60900bc0f965f1b809b7f7ef0f8fa6f3a71d558d4b1e72c4e71e8dc6ceb15ee5686bed9afd522ff49e8b17ada9df9b31203dc46690962ea5bc
@@ -32,13 +32,14 @@ services:
 
   redis:
     image: redis:alpine
+    depends_on:
+      - db
     restart: always
 
   worker:
     image: cumulus_worker
     depends_on:
-      - redis
-      - db
+      - api
     environment:
       - RAILS_ENV=production
       - SIDEKIQ_WORKERS=1

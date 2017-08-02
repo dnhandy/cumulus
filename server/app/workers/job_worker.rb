@@ -1,6 +1,7 @@
 require 'pty'
 require 'timeout'
-require 'rb-inotify'
+require 'open3'
+
 class JobWorker
   include Sidekiq::Worker
 
@@ -17,8 +18,6 @@ class JobWorker
         log(job_id, "Executing task...",  true)
         stdout, stdin, pid = PTY.spawn(cmd)
 
-puts "The pid is #{pid}"
-
         last_processed_line = 0
 
         finished = false
@@ -29,38 +28,36 @@ puts "The pid is #{pid}"
             # The process hasn't ended. Check for commands from the server
             job.reload
             if (job.pausing?)
-              puts "Pausing time!"
               log(job_id, "Pausing task...", true)
-              Process.kill('USR1', pid)
-              puts "USR1 sent"
+
+              child_pid_cmd = "pgrep -P #{pid}"
+              Open3.popen3(child_pid_cmd) do |stdin, stdout, stderr, wait_thread|
+                child_pid = stdout.gets
+                Process.kill('USR1', child_pid.to_i) if child_pid
+                tmp_code = wait_thread.value
+              end
+
               begin
                 Timeout::timeout(600) do
                   begin
                     while (Process.kill(0, pid))
-                      puts 'tick'
                       sleep(2)
                     end
                   rescue Errno::ESRCH
                   end
                 end
-                puts "Process terminated"
               rescue Timeout::Error
-                puts 'crap...'
                 log(job_id, "Pause timed out. Terminating...", true)
                 Process.abort()
               end
 
-puts "Looking for state file"
               if (job.state_file)
-                puts "Deleting state file"
                 job.state_file.delete
               end
 
-puts 'WTF?'
               if (File.exist?( @state_path ))
-                puts "Found on FS"
                 log(job_id, "Saving state...", true)
-                state_file = new JobFile({
+                state_file = JobFile.new({
                   name: File.basename(@state_path),
                   contents: File.read(@state_path) })
                 if (state_file.save)
@@ -87,9 +84,7 @@ puts 'WTF?'
         rescue PTY::ChildExited
         end
 
-puts "waiting..."
         Process.waitpid(pid, Process::WNOHANG)
-puts 'waited'
         log(job_id, "Task terminated", true)
         finished = true
 
@@ -97,6 +92,8 @@ puts 'waited'
         process_logs(job_id, last_processed_line)
       rescue PTY::ChildExited
       end
+
+
 
       if (job.running? || job.paused?)
         log(job_id, "Saving outputs...", true)
@@ -194,7 +191,7 @@ puts 'waited'
     if (job)
       log_entry = Log.new({
          job_id: job.id,
-         contents: internal ? Time.now.to_s + " " + log_msg : log_msg,
+         contents: log_msg,
          application: internal ? "cumulus" : job.executable.name })
       log_entry.save()
     end

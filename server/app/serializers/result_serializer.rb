@@ -1,3 +1,3 @@
 class ResultSerializer < ActiveModel::Serializer
-  attributes :id, :contents
+  attributes :id, :contents, :created_at, :updated_at
 end

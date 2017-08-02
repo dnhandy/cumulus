@@ -91,7 +91,9 @@ if ('config.json' in cumulus.input_files):
             lambda_val = lambda_profiles[config['lambda']['profile']](epoch)
             if ('reflected' in config['lambda'] and config['lambda']['reflected']):
                 lambda_val = config['lambda']['max'] + config['lambda']['min'] - lambda_val
-            print (epoch, ", ", lambda_val)
+
+            #print (epoch, ", ", lambda_val)
+            print (epoch, ',', concave_lambda(epoch), ',', convex_lambda(epoch), ',', sigmoid_lambda(epoch), ',', concave_lambda(epoch))
 
             time.sleep(0.5)
 

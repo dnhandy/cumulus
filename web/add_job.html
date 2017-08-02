@@ -42,6 +42,7 @@
           </div>
         </div>
 
+        <hr />
         <h3>Input files</h3>
         <p>
           These will all be included in a flat directory, and the path to that
@@ -135,11 +136,13 @@
               $.ajax({
                 url: 'api/job_files',
                 type: 'POST',
+                dataType: 'application/json',
                 data:
-                {
-                  name: $('#exe-input').val(),
-                  contents: reader.readAsDataURL(file)
-                },
+                JSON.stringify({
+                  name: $('#exe-input').val().match(/[^\/\\]+$/)[0],
+                  encoding: 'datauri',
+                  contents: reader.result
+                }),
                 success: function(response)
                 {
                   $('#exe-upload').button('reset');

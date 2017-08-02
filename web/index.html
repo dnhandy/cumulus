@@ -146,11 +146,15 @@
       lastLogID = -1;
 
       chartColors = [
-        '#2A7F80',
-        '#59A861',
-        '#E3C842',
-        '#F29554',
-        '#EE716C',
+        'red',
+        'blue',
+        'yellow',
+        'purple',
+        'green',
+        'orange',
+        'teal',
+        'MediumVioletRed',
+        'yellowgreen'
       ];
 
       visualizationChart = null
@@ -206,11 +210,18 @@
         }
       };
 
-      oldInputs = null
-      oldOutputs = null
+      oldInputs = null;
+      oldOutputs = null;
+
+      jobsTable = null;
 
       $(document).ready(function(){
         //Populate job history
+        jobsTable = $('#job-list').DataTable({
+          searching: false,
+          bSort: false,
+          lengthChange: false
+        });
         getJobs();
         var context = document.getElementById("visualization-canvas").getContext("2d");
         visualizationChart = new Chart(context, visualizationConfig);
@@ -223,7 +234,7 @@
           url: "api/jobs",
           success: function(response) {
             $("#job-list tbody").empty();
-
+            jobsTable.clear();
             var jobs = response.data.sort(sortByIDDesc);
 
             jobs.forEach(function(job){
@@ -231,7 +242,7 @@
               var status = job.attributes.status
               var name = job.attributes.name
 
-              $("#job-list tbody").append($(
+              jobsTable.rows.add($(
                 '<tr><td><img height="16" width="16" src="' +
                 status_icons[status] +'" alt="' + makeCap(status) + '" title="' + makeCap(status) + '" />' +
                 '</a></td><td><strong>' + id +
@@ -239,6 +250,8 @@
                 '</a></td></tr>'
               ));
             });
+
+            jobsTable.draw(false);
           }
         });
       }
@@ -309,8 +322,8 @@
                           dataset = {
                             label: "Column " + i,
                             data: [],
-                            borderColor: chartColors[chartColors.length % i],
-                            backgroundColor: chartColors[chartColors.length % i],
+                            borderColor: chartColors[i % chartColors.length],
+                            backgroundColor: chartColors[i % chartColors.length],
                             fill: false,
                             cubicInterpolationMode: 'monotone'
                           }
@@ -333,7 +346,11 @@
                 logs.forEach(function (log){
                   if (parseInt(log.id) > lastLogID)
                   {
-                    $('#log').append('<p class="console-line">[' + log.attributes.application + '] ' + log.attributes.contents + '</p>');
+                    $('#log').append(
+                      '<p class="console-line">' +
+                      log.attributes['created-at'] +
+                      ' [' + log.attributes.application + '] ' +
+                      log.attributes.contents + '</p>');
                     lastLogID = log.id
                     $('#log').scrollTop($("#log").prop("scrollHeight"));
                   }

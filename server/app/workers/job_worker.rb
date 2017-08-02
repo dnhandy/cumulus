@@ -101,9 +101,9 @@ class JobWorker
         job.outputs.delete_all
         JobFile.delete(files_to_delete)
         Dir.glob("#{@output_dir}/*").each do |output|
-          output_file = new JobFile({name: File.basename(output), contents: File.read(output) })
+          output_file = JobFile.new({name: File.basename(output), contents: File.read(output) })
           output_file.save
-          output_file_bridge = new OutputFile({job: job, job_file: output_file})
+          output_file_bridge = OutputFile.new({job: job, job_file: output_file})
           output_file_bridge.save
         end
       end

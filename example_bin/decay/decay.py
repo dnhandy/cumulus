@@ -98,6 +98,10 @@ if ('config.json' in cumulus.input_files):
             time.sleep(0.5)
 
             #TODO: Run the network with this lambda
+        with open(os.path.join(cumulus.output_dir, 'test1.txt'), 'w') as file1:
+            file1.write("This was a test")
+        with open(os.path.join(cumulus.output_dir, 'test2.txt'), 'w') as file2:
+            file2.write("This was another test")
     else:
         cumulus.log("unknown profile: ", config['lambda']['profile'])
         exit(2)

@@ -28,17 +28,18 @@
       <h2> Add a New Job</h2>
       <form class="form-horizontal">
         <div class="form-group">
-          <label class="control-label" for="name">Name:</label>
-          <input class="form-control" name="name" id="name-input" type="text" />
+          <label class="control-label col-sm-2" for="name">Name:</label>
+          <div class="col-sm-10">
+            <input class="form-control" name="name" id="name-input" type="text" />
+          </div>
         </div>
 
         <div class="form-group">
-          <label class="control-label" for="exe">Executable:</label>
-          <div class="button-group">
-            <input class="form-control" name="exe" id="exe-input" type="file" />
-            <button class="btn btn-default" data-loading-text="Uploading..." type="button" id="exe-upload" disabled="disabled">Upload</a>
-            <a download id="exe-download"></a>
-            <a style="display:none" href="javascript:void" id="exe-change">Change selection</a>
+          <label class="control-label col-sm-2" for="exe">Executable:</label>
+          <div class="col-sm-10">
+            <button type="button" id="set-exe-btn" class="btn btn-default">Select file</button>
+            <span class="form-control"><a download id="exe-download"></a></span>
+            <input type="hidden" id="exe-id" />
           </div>
         </div>
 
@@ -49,113 +50,231 @@
           directory will be provided to the executable as 'exe_name -i /path/to/inputs'
         </p>
 
+
         <div class="form-group">
-          <label class="control-label" for="add-input">Add Input:</label>
-          <div class="button-group">
-            <input class="form-control" name="add-input" id="input-input" type="file" />
-            <button class="btn btn-default" type="button" id="input-upload" disabled="disabled">Upload</a>
+          <label class="control-label col-sm-2">Add Input:</label>
+          <div class="col-sm-10">
+            <button type="button" id="add-input-btn" class="btn btn-default">Select file</button>
           </div>
         </div>
 
-        <table class="table" id="input-table">
-        </table>
+        <div class="offset-sm-2 col-md-10">
+          <table class="table" id="input-table">
+            <thead>
+              <tr><th>File Name</th><th>Input Name (if different than file name)</th><th></th></tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+
+          <button type="button" disabled="disabled" id="submit-button" class="btn btn-primary">Submit</button>
+        </div>
       </form>
     </div>
 
-    <!--<div class="modal fade" id="submit-job-modal">
+    <div class="modal fade" id="file-form-modal">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Submit cyclus job</h5>
+            <h5 class="modal-title">Select file</h5>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
           </div>
           <div class="modal-body">
-            <form>
-              <div class="radio">
-                <label><input type="radio" name="input-file-type" value="standard" /> Use existing input file</label>
-              </div>
-              <div class="radio">
-                <label><input type="radio" name="input-file-type" value="custom" /> Upload new input file</label>
-              </div>
+            <form id="file-form">
+              <input type="radio" name="file-method" id="upload-radio-button" val="upload" />Upload new file<br />
+              <input type="radio" name="file-method" id="choose-radio-button" val="choose" />Select a recently used file<br />
               <hr />
-              <div id="standard">
-                <div class="form-group">
-                  <label for="fileID">Input File:</label>
-                  <select name="file-id" class="form-control">
-                    <optgroup id="cycamore-opt-group" label="Cycamore Input Files">
-                    </optgroup>
-                    <optgroup id="custom-opt-group" label="Custom Input Files">
-                    </optgroup>
-                  </select>
+
+              <div id="upload-div">
+                <div class="input-group" id="exe-upload-group">
+                  <input class="form-control" name="exe" id="upload-input" type="file" />
+                  <span class="input-group-btn">
+                    <button class="btn btn-default" data-loading-text="Uploading..." type="button" id="upload-button" disabled="disabled">Upload</button>
+                  </span>
                 </div>
               </div>
-              <div id="custom">
-                <div class="form-group">
-                  <label for="file-upload">Input File:</label>
-                  <input class="form-control" type="file" name="upload" />
-                </div>
-                <div class="checkbox">
-                  <label><input type="checkbox" name="permanent" /> Add file to list for re-use in future jobs</label>
-                </div>
+              <div id="choose-div">
+                <h4>Select a recently used file:</h4>
+                <table id="existing-file-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>File name</th>
+                      <th>Upload date</th>
+                      <th>SHA1 Checksum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
               </div>
-              <div id="error" style="color:red"></div>
             </form>
           </div>
+          <hr />
+          <input type="hidden" id="file-id" type="hidden" />
+          <span>Currently selected: <a id="file-link"></a></span>
           <div class="modal-footer">
-            <button type="button" id="submit-job-button" class="btn btn-primary">Save changes</button>
+            <button disabled="disabled" type="button" id="ok-button" class="btn btn-primary">Ok</button>
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
-    </div>-->
+    </div>
+
+    <table style="display:none" id="trash"></table>
 
     <script type="text/javascript">
-      $(document).ready(function(){
-        $('#exe-input').change(function(){
-          if (document.getElementById("exe-input").files.length > 0)
+      executable_list = {};
+      inputs_list = {};
+      currentFileList = null;
+      fileTable = null;
+      fileOnSave = null;
+
+      function selectFile(fileID)
+      {
+        $('#file-id').val(fileID);
+        $('#file-link').attr("href", "api/job_files/" + fileID);
+        $('#file-link').empty().append(currentFileList[fileID].name);
+        $('#ok-button').prop('disabled', false);
+      }
+
+      function showFileForm()
+      {
+        $('#file-form')[0].reset();
+        $('#file-link').empty();
+        $('#file-link').attr("href", "");
+        $('#ok-button').prop('disabled', true);
+        $('#upload-radio-button').click();
+
+        fileTable.clear();
+        $('#existing-file-table tbody').empty();
+        for (var fileID in currentFileList)
+        {
+          fileTable.rows.add($(
+            '<tr>' +
+              '<td><a href="javascript:void(0)" onclick="selectFile(' + fileID + ')">Select</a></td>' +
+              '<td>' + currentFileList[fileID].name + '</td>' +
+              '<td>' + currentFileList[fileID].date + '</td>' +
+              '<td>' + currentFileList[fileID].sha1 + '</td>' +
+            '</tr>'
+          ));
+        }
+        fileTable.draw();
+        $('#file-form-modal').modal('show');
+      }
+
+      function removeInput(sender)
+      {
+        if (sender)
+        {
+          var row = $(sender).closest('tr');
+          if (row)
           {
-            $('#exe-upload').prop("disabled", false);
+            $('#trash').append(row);
+            $('#trash').empty();
           }
-          else
-          {
-            $('#exe-upload').prop("disabled", true);
+        }
+      }
+
+      function validate()
+      {
+        if ($('#exe-id').val() && $('#exe-id').val() !== "" && $('#name-input').val() && $('#name-input').val() !== "")
+        {
+          $('#submit-button').prop('disabled', false);
+        }
+      }
+
+      $(document).ready(function(){
+        fileTable = $('#existing-file-table').DataTable();
+
+        // Populate the list of existing files
+        $.ajax({
+          url: 'api/job_files/executables',
+          success: function(response){
+            if (response && response.data && response.data.forEach)
+            {
+              executable_list = {};
+              response.data.forEach(function(file) {
+                executable_list[file.id] = {
+                  id: file.id,
+                  name: file.attributes.name,
+                  sha1: file.attributes.sha1,
+                  date: file.attributes.created_at
+                }
+              });
+            }
           }
         });
 
-        $('#exe-upload').off().on('click', function(){
-          if ($('#exe-input').val())
+        $.ajax({
+          url: 'api/job_files/inputs',
+          success: function(response){
+            if (response && response.data && response.data.forEach)
+            {
+              inputs_list = {};
+              response.data.forEach(function(file) {
+                inputs_list[file.id] = {
+                  id: file.id,
+                  name: file.attributes.name,
+                  sha1: file.attributes.sha1,
+                  date: file.attributes.created_at
+                }
+              });
+            }
+          }
+        });
+
+        // Set up event listeners
+        $('#upload-input').change(function(){
+          if (document.getElementById("upload-input").files.length > 0)
           {
-            $('#exe-upload').button('loading');
-            $('#exe-input').prop('disabled', true);
+            $('#upload-button').prop("disabled", false);
+          }
+          else
+          {
+            $('#upload-button').prop("disabled", true);
+          }
+        });
+
+        $('#upload-button').off().on('click', function(){
+          if ($('#upload-input').val())
+          {
+            $('#upload-button').button('loading');
             var reader = new FileReader();
-            var file = $('#exe-input')[0].files[0]
+            var file = $('#upload-input')[0].files[0]
 
             reader.addEventListener("load", function(){
               $.ajax({
                 url: 'api/job_files',
                 type: 'POST',
-                dataType: 'application/json',
-                data:
-                JSON.stringify({
-                  name: $('#exe-input').val().match(/[^\/\\]+$/)[0],
+                contentType: "application/json",
+                data: JSON.stringify({
+                  name: $('#upload-input').val().match(/[^\/\\]+$/)[0],
                   encoding: 'datauri',
                   contents: reader.result
                 }),
                 success: function(response)
                 {
-                  $('#exe-upload').button('reset');
-                  $('#exe-upload').prop(disabled, true);
-                  $('#exe-input').prop(disabled, true);
-                  $('#exe-download').attr('href', 'api/job_files/' + response.data.id)
-                  $('#exe-download').html(response.data.attributes.name)
-                  $('#exe-change').show();
-                  window.executable_id=response.data.id
+                  $('#upload-button').button('reset');
+                  $('#upload-button').prop("disabled", true);
+
+                  $('#file-id').val(response.data.id);
+                  $('#file-link').attr('href', 'api/job_files/' + response.data.id);
+                  $('#file-link').html(response.data.attributes.name);
+                  $('#ok-button').prop('disabled', false);
+
+                  currentFileList[response.data.id] = {
+                    id: response.data.id,
+                    name: response.data.attributes.name,
+                    sha1: response.data.attributes.sha1,
+                    date: response.data.attributes.created_at
+                  }
                 },
-                error: function(){
-                  $('#exe-upload').button('reset');
-                  alert('Failed to upload file')
+                error: function(xhr){
+                  $('#upload-button').button('reset');
+                  alert('Failed to upload file: ' + xhr.status + ': ' + xhr.responseText)
                 }
               })
             });
@@ -166,9 +285,101 @@
             }
             else
             {
-              $('#exe-upload').button('reset');
+              $('#upload-button').button('reset');
             }
           }
+          return false;
+        });
+
+        $('#ok-button').off().on('click', function(){
+          if (fileOnSave)
+          {
+            fileOnSave($('#file-id').val());
+          }
+          $('#file-form-modal').modal('hide');
+          return false;
+        });
+
+        $('#set-exe-btn').off().on('click', function(){
+          currentFileList = executable_list;
+          fileOnSave = function(fileID){
+            var file = currentFileList[fileID];
+            if (file)
+            {
+              $('#exe-download').attr('href', 'api/job_files/' + fileID);
+              $('#exe-download').empty().append(file.name);
+              $('#exe-id').val(fileID);
+            }
+          };
+          showFileForm();
+          return false;
+        });
+
+        $('#add-input-btn').off().on('click', function(){
+          currentFileList = inputs_list;
+          fileOnSave = function(fileID) {
+            var file = currentFileList[fileID];
+            if (file)
+            {
+              $('#input-table tbody').append($(
+                '<tr class="input-file-row">' +
+                  '<td><a href="api/job_files/' + fileID + '">' + file.name + '</a></td>' +
+                  '<td>[<a href="javascript:void(0)" onclick="removeInput(this)">remove</a>]</td>' +
+                  '<td>' +
+                    '<input type="text" name="input-name" value="' + file.name + '" />' +
+                    '<input type="hidden" name="input-id" value="' + fileID + '" />"' +
+                  '</td>' +
+                '</tr>'
+              ));
+
+              $('#exe-download').attr('href', 'api/job_files/' + fileID);
+              $('#exe-download').empty().append(file.name);
+              $('#exe-id').val(fileID);
+            }
+          };
+          showFileForm();
+          return false;
+        });
+
+        $('#name-input').change(validate);
+
+        $('#submit-button').off().on('click', function(){
+          var data = {
+            name: $('#name-input').val(),
+            executable_id: $('#exe-id').val(),
+            inputs: []
+          };
+
+          $("tr.input-file-row").each(function(){
+            data.inputs.push({
+              name: this.find("input[name='input-name']").val(),
+              job_file_id: this.find("input[name='input-id']").val(),
+            });
+          });
+
+          $.ajax({
+            url: 'api/jobs',
+            type: 'POST',
+            data: JSON.stringify(data),
+            contentType: 'application/json',
+            success: function(){
+              window.location.href="index.html";
+            },
+            error: function(xhr){
+              alert('Failed to submit job: ' + xhr.status + ': ' + xhr.responseText);
+            }
+          });
+          return false;
+        });
+
+        $('#upload-radio-button').off().on('click', function(){
+          $('#choose-div').hide();
+          $('#upload-div').show();
+        });
+
+        $('#choose-radio-button').off().on('click', function(){
+          $('#upload-div').hide();
+          $('#choose-div').show();
         });
       });
     </script>

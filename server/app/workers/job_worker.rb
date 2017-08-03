@@ -150,9 +150,9 @@ class JobWorker
     `chmod +x #{@exe_path}`
 
     # Write the input files
-    job.inputs.each do |input_file|
-      path = "#{@input_dir}/#{input_file.name}"
-      File.open(path, 'wb') { |file| file.write(input_file.contents) }
+    job.inputs_files.each do |input_file|
+      path = "#{@input_dir}/#{input_file.name || input_file.job_file.name}"
+      File.open(path, 'wb') { |file| file.write(input_file.job_file.contents) }
     end
 
     # if the job is being resumed after being previously paused, copy the state

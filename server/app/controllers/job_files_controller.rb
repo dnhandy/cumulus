@@ -34,9 +34,7 @@ class JobFilesController < ApplicationController
   def create
     begin
       @job_file = JobFile.new(job_file_params)
-
       encoding = params.permit(:encoding)[:encoding]
-
       if (@job_file.contents)
         case encoding
         when "base64"

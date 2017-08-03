@@ -4,6 +4,6 @@ class JobSerializer < ActiveModel::Serializer
   has_one :executable
   has_one :state_file
 
-  has_many :inputs
+  has_many :input_files
   has_many :outputs
 end

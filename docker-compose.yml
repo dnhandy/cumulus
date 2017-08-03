@@ -2,7 +2,7 @@ version: '3'
 
 services:
   web:
-    image: cumulus_web
+    image: dnhandy/cumulus_web
     depends_on:
       - worker
     ports:
@@ -10,7 +10,7 @@ services:
     restart: always
 
   api:
-    image: cumulus_api
+    image: dnhandy/cumulus_api
     depends_on:
       - redis
 
@@ -37,7 +37,7 @@ services:
     restart: always
 
   worker:
-    image: cumulus_worker
+    image: dnhandy/cumulus_worker
     depends_on:
       - api
     environment:

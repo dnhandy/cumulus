@@ -51,8 +51,13 @@ class JobWorker
                 Process.abort()
               end
 
-              if (job.state_file)
-                job.state_file.delete
+              state_file = job.state_file
+
+              if (state_file)
+                job.state_file = nil;
+                if job.save()
+                  state_file.delete
+                end
               end
 
               if (File.exist?( @state_path ))
@@ -150,7 +155,7 @@ class JobWorker
     `chmod +x #{@exe_path}`
 
     # Write the input files
-    job.inputs_files.each do |input_file|
+    job.input_files.each do |input_file|
       path = "#{@input_dir}/#{input_file.name || input_file.job_file.name}"
       File.open(path, 'wb') { |file| file.write(input_file.job_file.contents) }
     end

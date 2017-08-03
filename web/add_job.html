@@ -10,21 +10,28 @@
     <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.15/datatables.min.js"></script>
   </head>
   <body>
-    <nav class="navbar navbar-toggleable-md navbar-inverse bg-inverse fixed-top">
-      <a class="navbar-brand" href="index.html">Cumulus</a>
-      <div class="collapse navbar-collapse" id="navbarsExampleDefault">
-        <ul class="navbar-nav mr-auto">
-          <li class="nav-item ">
-            <a class="nav-link" href="index.html">Home</a>
-          </li>
-          <li class="nav-item active">
-            <a class="nav-link">Add Job</span></a>
-          </li>
-        </ul>
+
+    <nav class="navbar navbar-inverse navbar-fixed-top bg-inverse">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">Cumulus</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li class="active"><a href="#">Add Job</a></li>
+          </ul>
+        </div>
       </div>
     </nav>
 
-    <div class="container">
+    <div class="container" style="margin-top:80px">
       <h2> Add a New Job</h2>
       <form class="form-horizontal">
         <div class="form-group">
@@ -37,8 +44,12 @@
         <div class="form-group">
           <label class="control-label col-sm-2" for="exe">Executable:</label>
           <div class="col-sm-10">
-            <button type="button" id="set-exe-btn" class="btn btn-default">Select file</button>
-            <span class="form-control"><a download id="exe-download"></a></span>
+            <div class="input-group">
+              <span class="input-group-btn">
+                <button type="button" id="set-exe-btn" class="btn btn-default">Select file</button>
+              </span>
+              <span class="form-control"><a download id="exe-download"></a></span>
+            </div>
             <input type="hidden" id="exe-id" />
           </div>
         </div>
@@ -47,7 +58,16 @@
         <h3>Input files</h3>
         <p>
           These will all be included in a flat directory, and the path to that
-          directory will be provided to the executable as 'exe_name -i /path/to/inputs'
+          directory will be provided to the executable as 'exe_name -i /path/to/inputs'.
+        </p>
+        <p>
+          In some cases, you may not want the original file name. For example, if
+          you want to run two jobs with the same simulation program but different
+          configurations, you may name the configuration files "config1.json" and
+          "config2.json", but your program expects "config.json". In that case,
+          set the Alias in table below to be "config.json", and your program will
+          find the file named appropriately, regardless of what the actual file
+          name is.
         </p>
 
 
@@ -61,7 +81,7 @@
         <div class="offset-sm-2 col-md-10">
           <table class="table" id="input-table">
             <thead>
-              <tr><th>File Name</th><th>Input Name (if different than file name)</th><th></th></tr>
+              <tr><th>File Name</th><th>Alias</th><th></th></tr>
             </thead>
             <tbody>
             </tbody>
@@ -73,7 +93,7 @@
     </div>
 
     <div class="modal fade" id="file-form-modal">
-      <div class="modal-dialog" role="document">
+      <div class="modal-admin" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Select file</h5>
@@ -135,7 +155,7 @@
       function selectFile(fileID)
       {
         $('#file-id').val(fileID);
-        $('#file-link').attr("href", "api/job_files/" + fileID);
+        $('#file-link').attr("href", "api/job_files/" + fileID + '/download');
         $('#file-link').empty().append(currentFileList[fileID].name);
         $('#ok-button').prop('disabled', false);
       }
@@ -201,7 +221,7 @@
                   id: file.id,
                   name: file.attributes.name,
                   sha1: file.attributes.sha1,
-                  date: file.attributes.created_at
+                  date: file.attributes['created-at']
                 }
               });
             }
@@ -219,7 +239,7 @@
                   id: file.id,
                   name: file.attributes.name,
                   sha1: file.attributes.sha1,
-                  date: file.attributes.created_at
+                  date: file.attributes['created-at']
                 }
               });
             }
@@ -261,7 +281,7 @@
                   $('#upload-button').prop("disabled", true);
 
                   $('#file-id').val(response.data.id);
-                  $('#file-link').attr('href', 'api/job_files/' + response.data.id);
+                  $('#file-link').attr('href', 'api/job_files/' + response.data.id + '/download');
                   $('#file-link').html(response.data.attributes.name);
                   $('#ok-button').prop('disabled', false);
 
@@ -269,7 +289,7 @@
                     id: response.data.id,
                     name: response.data.attributes.name,
                     sha1: response.data.attributes.sha1,
-                    date: response.data.attributes.created_at
+                    date: response.data.attributes['created-at']
                   }
                 },
                 error: function(xhr){
@@ -306,9 +326,10 @@
             var file = currentFileList[fileID];
             if (file)
             {
-              $('#exe-download').attr('href', 'api/job_files/' + fileID);
+              $('#exe-download').attr('href', 'api/job_files/' + fileID + '/download');
               $('#exe-download').empty().append(file.name);
               $('#exe-id').val(fileID);
+              validate();
             }
           };
           showFileForm();
@@ -323,18 +344,14 @@
             {
               $('#input-table tbody').append($(
                 '<tr class="input-file-row">' +
-                  '<td><a href="api/job_files/' + fileID + '">' + file.name + '</a></td>' +
-                  '<td>[<a href="javascript:void(0)" onclick="removeInput(this)">remove</a>]</td>' +
+                  '<td><a href="api/job_files/' + fileID + '/download">' + file.name + '</a></td>' +
                   '<td>' +
                     '<input type="text" name="input-name" value="' + file.name + '" />' +
-                    '<input type="hidden" name="input-id" value="' + fileID + '" />"' +
+                    '<input type="hidden" name="input-id" value="' + fileID + '" />' +
                   '</td>' +
+                  '<td>[<a href="javascript:void(0)" onclick="removeInput(this)">remove</a>]</td>' +
                 '</tr>'
               ));
-
-              $('#exe-download').attr('href', 'api/job_files/' + fileID);
-              $('#exe-download').empty().append(file.name);
-              $('#exe-id').val(fileID);
             }
           };
           showFileForm();
@@ -352,8 +369,8 @@
 
           $("tr.input-file-row").each(function(){
             data.inputs.push({
-              name: this.find("input[name='input-name']").val(),
-              job_file_id: this.find("input[name='input-id']").val(),
+              name: $(this).find("input[name='input-name']").val(),
+              job_file_id: $(this).find("input[name='input-id']").val(),
             });
           });
 

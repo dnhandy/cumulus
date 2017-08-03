@@ -27,21 +27,27 @@
     </style>
   </head>
   <body>
-    <nav class="navbar navbar-toggleable-md navbar-inverse bg-inverse fixed-top">
-      <a class="navbar-brand">Cumulus</a>
-      <div class="collapse navbar-collapse" id="navbarsExampleDefault">
-        <ul class="navbar-nav mr-auto">
-          <li class="nav-item active">
-            <a class="nav-link">Home</span></a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="add_job.html">Link</a>
-          </li>
-        </ul>
+    <nav class="navbar navbar-inverse navbar-fixed-top bg-inverse">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">Cumulus</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li class="active"><a href="#">Home</a></li>
+            <li><a href="add_job.html">Add Job</a></li>
+          </ul>
+        </div>
       </div>
     </nav>
 
-    <div class="container">
+    <div class="container" style="margin-top:80px">
       <div class="row">
         <div class="col-md-3" style="overflow:auto; border-right:1px solid grey">
           <h2>Job History</h2>
@@ -136,8 +142,9 @@
         failed: "images/failed_icon.png",
         finished: "images/finished_icon.png",
         paused: "images/paused_icon.png",
-        pausing: "images/paused_icon.png",
+        pausing: "images/pausing_icon.png",
         pending: "images/pending_icon.png",
+        resuming: "images/resuming_icon.png",
         running: "images/running_icon.png"
       };
 
@@ -148,7 +155,7 @@
       chartColors = [
         'red',
         'blue',
-        'yellow',
+        '#f0f000',
         'purple',
         'green',
         'orange',
@@ -447,7 +454,7 @@
             makeFileLink(response.data.relationships.executable.data.id, $('#executable-link'));
           }
 
-          var inputs = response.data.relationships.inputs
+          var inputs = response.data.relationships['input-files'];
           if (JSON.stringify(inputs) != JSON.stringify(oldInputs))
           {
             oldInputs = inputs;
@@ -456,7 +463,7 @@
             if (inputs && inputs.data)
             {
               inputs.data.forEach(function(input){
-                var link = $('<a></a>');
+                var link = $('<a href="api/job_files/' + input.id +'/download">' + input.name + '</a>');
                 makeFileLink(input.id, link);
                 var item = $('<li></li>');
                 $(item).append(link)
@@ -470,7 +477,7 @@
           {
             oldOutputs = outputs;
             $('#output-list').empty();
-            if (outputs && inputs.data)
+            if (outputs && outputs.data)
             {
               outputs.data.forEach(function(output){
                 var link = $('<a></a>');

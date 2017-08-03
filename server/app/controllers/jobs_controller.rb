@@ -25,7 +25,10 @@ class JobsController < ApplicationController
   # POST /jobs
   def create
     executable_id = params.permit(:executable_id)[:executable_id]
-    input_file_ids = params.permit(inputs: [:name, :job_file_id])[:inputs]
+    input_files = params.permit(inputs: [:name, :job_file_id])[:inputs]
+
+    puts Array(input_files).map{|i| i.to_h}
+
     if (executable_id)
       executable = JobFile.find(executable_id)
       if executable
@@ -34,8 +37,8 @@ class JobsController < ApplicationController
         @job.executable = executable
 
         if @job.save
-          if input_file_ids
-            input_file_ids.each do |input_file|
+          if input_files
+            input_files.each do |input_file|
               file = JobFile.find(input_file[:job_file_id])
               if file
                 input_file = InputFile.new({ job: @job, job_file: file, name: input_file[:name] })
